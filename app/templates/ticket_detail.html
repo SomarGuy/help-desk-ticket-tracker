@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Ticket #{{ t.id }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="{{ url_for('main.ticket_list') }}">&larr; All tickets</a></p>
+<h1>#{{ t.id }} {{ t.title }}</h1>
+<div class="meta">
+  <a class="tag st-{{ t.status | lower | replace(' ', '-') }}" href="{{ url_for('main.ticket_list', status=t.status) }}" title="All {{ t.status }} tickets">{{ t.status }}</a>
+  <a class="tag pri-{{ t.priority | lower }}" href="{{ url_for('main.ticket_list', priority=t.priority) }}" title="All {{ t.priority }} priority tickets">{{ t.priority }}</a>
+  <a class="tag" href="{{ url_for('main.ticket_list', category=t.category) }}" title="All {{ t.category }} tickets">{{ t.category }}</a>
+  <span>Requester: <b>{{ t.requester }}</b></span>
+  <span>Assignee: <b>{{ t.assignee or 'Unassigned' }}</b></span>
+</div>
+<div class="meta sla-{{ sla }}">
+  Created {{ t.created_at | dt }} &middot; SLA due {{ t.due_at | dt }}
+  {% if left %}({{ left }}){% endif %}
+  {% if t.resolved_at %}&middot; Resolved {{ t.resolved_at | dt }} ({{ 'within SLA' if sla == 'met' else 'SLA missed' }}){% endif %}
+</div>
+
+<div class="grid2 detail">
+  <section class="panel">
+    <h2>Description</h2>
+    <p class="pre">{{ t.description or 'No description.' }}</p>
+    {% if t.resolution %}<h2>Resolution</h2><p class="pre resolution">{{ t.resolution }}</p>{% endif %}
+
+    <h2>Resolution log</h2>
+    <ol class="log">
+      {% for n in notes %}
+      <li class="{{ n.kind }}">
+        <div class="when">{{ n.created_at | dt }} &middot; {{ n.author }} &middot; <em>{{ n.kind }}</em></div>
+        <div class="pre">{{ n.body }}</div>
+      </li>
+      {% endfor %}
+    </ol>
+    <form class="stack" method="post" action="{{ url_for('main.note_add', ticket_id=t.id) }}">
+      <h3>Add a note</h3>
+      <input name="author" value="Technician" aria-label="Your name" maxlength="60">
+      <textarea name="body" rows="3" required aria-label="Note text" placeholder="What did you check or do? Use the ticket-note template from the knowledge base."></textarea>
+      <button type="submit">Add note</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Update ticket</h2>
+    <form class="stack" method="post" action="{{ url_for('main.ticket_update', ticket_id=t.id) }}">
+      <label>Your name <input name="author" value="Technician" maxlength="60"></label>
+      <label>Status <select name="status">{% for s in STATUSES %}<option {{ 'selected' if t.status == s }}>{{ s }}</option>{% endfor %}</select></label>
+      <label>Priority <select name="priority">{% for p in PRIORITIES %}<option {{ 'selected' if t.priority == p }}>{{ p }}</option>{% endfor %}</select></label>
+      <label>Assignee <select name="assignee_id"><option value="">Unassigned</option>
+        {% for te in technicians %}<option value="{{ te.id }}" {{ 'selected' if t.assignee_id == te.id }}>{{ te.name }}</option>{% endfor %}</select></label>
+      <label>Resolution summary <small>(required for Resolved / Closed)</small>
+        <textarea name="resolution" rows="4" placeholder="What fixed it?">{{ t.resolution or '' }}</textarea></label>
+      <button type="submit">Save changes</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

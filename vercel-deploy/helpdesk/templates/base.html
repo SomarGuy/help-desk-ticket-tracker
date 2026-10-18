@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Help Desk{% endblock %} - Ticket Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f4e8c'/%3E%3Cpath d='M9 9h14v3H9zm0 6h14v3H9zm0 6h9v3H9z' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="{{ url_for('main.dashboard') }}">Help Desk Ticket Tracker</a>
+  <nav aria-label="Main">
+    <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('main.ticket_list', status='active') }}">Open tickets</a>
+    <a href="{{ url_for('main.ticket_list') }}">All tickets</a>
+    <a class="btn" href="{{ url_for('main.ticket_new') }}">+ New ticket</a>
+  </nav>
+</header>
+<div class="demo-note">Live demo with <strong>synthetic sample data</strong>. The database is ephemeral: <strong>data resets</strong> whenever the server restarts (tickets you create will disappear).</div>
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+<footer>Portfolio demo app. Ticket data is <strong>synthetic sample data</strong> created by seed.py. All times are UTC. Hosted demo: no login, and all data resets periodically.</footer>
+</body>
+</html>

@@ -1,0 +1,15 @@
+instance/
+__pycache__/
+.venv/
+*.pyc
+.pytest_cache/
+
+.env
+.env.*
+venv/
+*.db
+*.sqlite
+*.sqlite3
+node_modules/
+.vercel/
+.DS_Store

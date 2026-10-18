@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}New ticket{% endblock %}
+{% block content %}
+<h1>New ticket</h1>
+<form class="stack" method="post">
+  <label>Title <input name="title" required maxlength="140" value="{{ form.get('title', '') }}" placeholder="e.g. Laptop will not connect to office Wi-Fi"></label>
+  <label>Requester <input name="requester" required maxlength="80" value="{{ form.get('requester', '') }}" placeholder="Who is reporting the issue?"></label>
+  <div class="row3">
+    <label>Category <select name="category">{% for c in CATEGORIES %}<option {{ 'selected' if form.get('category') == c }}>{{ c }}</option>{% endfor %}</select></label>
+    <label>Priority <select name="priority">{% for p in PRIORITIES %}<option {{ 'selected' if (form.get('priority') or 'Medium') == p }}>{{ p }}</option>{% endfor %}</select></label>
+    <label>Assign to <select name="assignee_id"><option value="">Unassigned</option>
+      {% for t in technicians %}<option value="{{ t.id }}" {{ 'selected' if form.get('assignee_id') == t.id | string }}>{{ t.name }}</option>{% endfor %}</select></label>
+  </div>
+  <label>Description <textarea name="description" rows="5" placeholder="What is happening? Since when? What has been tried?">{{ form.get('description', '') }}</textarea></label>
+  <p class="hint">The SLA due time is set automatically from the priority (Critical 4h, High 8h, Medium 24h, Low 72h).</p>
+  <button type="submit">Create ticket</button>
+</form>
+{% endblock %}

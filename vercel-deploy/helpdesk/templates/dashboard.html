@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="cards">
+  <a class="card" href="{{ url_for('main.ticket_list', status='active') }}"><span class="num">{{ s.total_open }}</span><span>Open tickets</span></a>
+  <a class="card {{ 'bad' if s.overdue }}" href="{{ url_for('main.ticket_list', overdue=1) }}"><span class="num">{{ s.overdue }}</span><span>Past SLA due time</span></a>
+  <a class="card" href="{{ url_for('main.ticket_list', status='active', assignee='none') }}"><span class="num">{{ s.unassigned }}</span><span>Unassigned</span></a>
+  <div class="card"><span class="num">{{ s.avg_hours_all | hours }}</span><span>Avg time to resolve ({{ s.resolved_count }} resolved)</span></div>
+  <div class="card"><span class="num">{{ '%.0f%%' % s.sla_met_pct if s.sla_met_pct is not none else 'n/a' }}</span><span>Resolved within SLA</span></div>
+</div>
+
+<div class="grid2">
+  <section class="panel">
+    <h2>Open tickets by category</h2>
+    {% set mx = s.by_category.values() | max or 1 %}
+    {% for cat, n in s.by_category.items() %}
+    <div class="bar-row">
+      <a href="{{ url_for('main.ticket_list', status='active', category=cat) }}">{{ cat }}</a>
+      <div class="bar"><div style="width: {{ 100 * n / mx }}%"></div></div>
+      <b>{{ n }}</b>
+    </div>
+    {% endfor %}
+  </section>
+
+  <section class="panel">
+    <h2>Average time to resolve, by category</h2>
+    {% set mx2 = (s.avg_hours_by_category.values() | select | list | max) or 1 %}
+    {% for cat, h in s.avg_hours_by_category.items() %}
+    <div class="bar-row">
+      <span>{{ cat }}</span>
+      <div class="bar alt"><div style="width: {{ 100 * (h or 0) / mx2 }}%"></div></div>
+      <b>{{ h | hours }}</b>
+    </div>
+    {% endfor %}
+  </section>
+
+  <section class="panel">
+    <h2>Open tickets by priority</h2>
+    {% set mx3 = s.by_priority.values() | max or 1 %}
+    {% for p, n in s.by_priority.items() %}
+    <div class="bar-row">
+      <a href="{{ url_for('main.ticket_list', status='active', priority=p) }}">{{ p }}</a>
+      <div class="bar pri-{{ p | lower }}"><div style="width: {{ 100 * n / mx3 }}%"></div></div>
+      <b>{{ n }}</b>
+    </div>
+    {% endfor %}
+  </section>
+
+  <section class="panel note">
+    <h2>About these numbers</h2>
+    <p>The data in this demo is synthetic sample data. "Time to resolve" is measured from ticket creation to the moment it was resolved or closed. "Within SLA" compares the resolved time with the due time set by the priority (sample policy: Critical 4h, High 8h, Medium 24h, Low 72h).</p>
+  </section>
+</div>
+{% endblock %}
