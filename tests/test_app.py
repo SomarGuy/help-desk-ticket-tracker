@@ -152,11 +152,11 @@ def test_dashboard_numbers(app, client):
     assert abs(s["avg_hours_by_category"]["Hardware"] - 6.0) < 0.01
     assert s["avg_hours_by_category"]["Network"] is None
     assert abs(s["sla_met_pct"] - 200 / 3) < 0.01               # 2 of 3 met SLA
-    assert client.get("/").status_code == 200
+    assert client.get("/overview").status_code == 200
 
 
 def test_dashboard_with_no_data(client):
-    resp = client.get("/")
+    resp = client.get("/overview")
     assert resp.status_code == 200 and b"n/a" in resp.data
 
 
@@ -173,3 +173,81 @@ def test_detail_page_tags_link_to_matching_filters(app, client):
         assert {"status": ["Open"]} in qs and {"priority": [pri]} in qs and {"category": [cat]} in qs
         listing = client.get([h for h in links if "category" in h][0]).data.decode()
         assert f"/tickets/{tid}" in listing and (f"/tickets/{3 - tid}" not in listing)
+
+
+# ---- the queue workspace --------------------------------------------------------------
+def test_home_is_the_queue_and_hides_finished_tickets(app, client):
+    create(client, title="Still open one")
+    create(client, title="Already done one")
+    client.post("/tickets/2/update", data=dict(status="Resolved", priority="Medium",
+                                               resolution="Replaced the cable."))
+    page = client.get("/").data.decode()
+    assert "Still open one" in page and "Already done one" not in page
+    everything = client.get("/tickets").data.decode()
+    assert "Still open one" in everything and "Already done one" in everything
+
+
+def test_queue_orders_most_urgent_first(app, client):
+    create(client, title="Low one", priority="Low")
+    create(client, title="Critical one", priority="Critical")
+    page = client.get("/").data.decode()
+    assert page.index("Critical one") < page.index("Low one")
+
+
+def test_list_fragment_has_no_page_chrome(app, client):
+    create(client, title="Fragment ticket")
+    frag = client.get("/?fragment=list").data.decode()
+    assert "Fragment ticket" in frag and "<html" not in frag and "<header" not in frag
+
+
+def test_detail_fragment_and_full_page_share_the_ticket(app, client):
+    create(client, title="Docking station dead")
+    frag = client.get("/tickets/1?fragment=1").data.decode()
+    full = client.get("/tickets/1").data.decode()
+    assert "<html" not in frag and "Docking station dead" in frag
+    assert "Docking station dead" in full and 'class="queue"' in full and 'id="panel"' in full
+
+
+def test_fragment_flag_survives_redirects(app, client):
+    create(client)
+    r = client.post("/tickets/1/notes?fragment=1", data=dict(body="Checked the PSU", author="Tech"),
+                    follow_redirects=True)
+    assert b"<html" not in r.data and b"Checked the PSU" in r.data
+    r = client.post("/tickets/new?fragment=1", data=dict(title="", requester="", category="Hardware",
+                    priority="Medium"), follow_redirects=True)
+    assert b"<html" not in r.data and b"Title is required." in r.data
+
+
+def test_new_ticket_page_shows_queue_and_form(client):
+    page = client.get("/tickets/new").data.decode()
+    assert "Log a ticket" in page and "No tickets match" in page and 'id="panel"' in page
+
+
+def test_help_panel_and_why_note_are_present(client):
+    page = client.get("/").data.decode()
+    assert 'id="help"' in page and "How to use this" in page and "Why I built this" in page
+    assert "\u2014" not in page
+
+
+def test_no_external_requests_in_templates(client):
+    page = client.get("/").data.decode()
+    import re
+    for url in re.findall(r'(?:src|href)="(https?://[^"]+)"', page):
+        assert url.startswith("https://github.com/SomarGuy/"), url
+
+
+def test_hosted_copy_is_in_sync_with_the_app():
+    import subprocess, sys
+    from pathlib import Path
+    script = Path(__file__).resolve().parents[1] / "scripts" / "sync_vercel_bundle.py"
+    r = subprocess.run([sys.executable, str(script), "--check"], capture_output=True, text=True)
+    assert r.returncode == 0, "run scripts/sync_vercel_bundle.py\n" + r.stdout
+
+
+def test_hosted_footer_warns_that_data_resets(tmp_path):
+    from app import create_app
+    from app.db import init_db
+    db = str(tmp_path / "h.sqlite")
+    init_db(db)
+    page = create_app({"TESTING": True, "DATABASE": db, "HOSTED_DEMO": True}).test_client().get("/")
+    assert b"resets when the server restarts" in page.data

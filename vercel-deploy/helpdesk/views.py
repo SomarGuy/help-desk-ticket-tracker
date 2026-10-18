@@ -1,4 +1,4 @@
-"""All routes: dashboard, ticket list/search, create, detail, update, notes."""
+"""All routes: queue, overview, ticket list/search, create, detail, update, notes."""
 from datetime import timedelta
 
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
@@ -66,21 +66,36 @@ def time_left(ticket) -> str:
     return f"{text} overdue" if delta < timedelta(0) else f"{text} left"
 
 
+def fragment() -> str:
+    """'' for a normal page; '1' or 'list' when the page's JavaScript asks for just a piece of it."""
+    return request.values.get("fragment", "")
+
+
+def frag_args() -> dict:
+    """Carry the fragment flag through a redirect so the JavaScript gets a fragment back."""
+    return {"fragment": fragment()} if fragment() else {}
+
+
+def render_workspace(panel=None, **ctx):
+    """Render the queue with an optional ticket panel beside it, or just the requested fragment."""
+    return render_template("workspace.html", panel=panel, **ctx)
+
+
 # --------------------------------------------------------------------------
-# dashboard
+# overview (the numbers)
 # --------------------------------------------------------------------------
-@bp.route("/")
+@bp.route("/overview")
 def dashboard():
     return render_template("dashboard.html", s=dashboard_stats())
 
 
 # --------------------------------------------------------------------------
-# list + search/filter
+# the queue: list + search/filter
 # --------------------------------------------------------------------------
-@bp.route("/tickets")
-def ticket_list():
+def queue_context(default_status: str = "") -> dict:
+    """Run the search/filter from the query string and return what the queue templates need."""
     q = request.args.get("q", "").strip()
-    status = request.args.get("status", "")
+    status = request.args.get("status", default_status)
     category = request.args.get("category", "")
     priority = request.args.get("priority", "")
     assignee = request.args.get("assignee", "")
@@ -120,11 +135,34 @@ def ticket_list():
             "CASE WHEN t.status IN ('Resolved','Closed') THEN '' ELSE t.due_at END, "
             "t.created_at DESC")
     rows = get_db().execute(sql, params).fetchall()
-    tickets = [dict(r, sla=sla_state(r)) for r in rows]
-    return render_template(
-        "tickets.html", tickets=tickets, technicians=technicians(),
-        f=dict(q=q, status=status, category=category, priority=priority,
-               assignee=assignee, overdue=overdue))
+    tickets = [dict(r, sla=sla_state(r), left=None if r["resolved_at"] else time_left(r))
+               for r in rows]
+    f = dict(q=q, status=status, category=category, priority=priority,
+             assignee=assignee, overdue=overdue)
+    narrowed = sum(bool(v) for k, v in f.items() if k not in ("q", "status")) + (
+        1 if status not in ("", "active") else 0)
+    return dict(tickets=tickets, technicians=technicians(), f=f, narrowed=narrowed,
+                past_due=sum(t["sla"] == "overdue" for t in tickets),
+                queue_url=request.path if request.path in ("/", "/tickets") else url_for("main.queue"))
+
+
+def show_queue(default_status: str):
+    ctx = queue_context(default_status)
+    if fragment() == "list":
+        return render_template("_queue.html", selected_id=None, **ctx)
+    return render_workspace(selected_id=None, **ctx)
+
+
+@bp.route("/")
+def queue():
+    """Home page: the queue of tickets that are not finished yet."""
+    return show_queue("active")
+
+
+@bp.route("/tickets")
+def ticket_list():
+    """The same queue, with every status unless the URL says otherwise."""
+    return show_queue("")
 
 
 # --------------------------------------------------------------------------
@@ -169,8 +207,12 @@ def ticket_new():
                      f"{int(sla_delta(priority).total_seconds() // 3600)}h).")
             db.commit()
             flash(f"Ticket #{cur.lastrowid} created.", "ok")
-            return redirect(url_for("main.ticket_detail", ticket_id=cur.lastrowid))
-    return render_template("ticket_new.html", form=form, technicians=technicians())
+            return redirect(url_for("main.ticket_detail", ticket_id=cur.lastrowid, **frag_args()))
+    if fragment():
+        return render_template("_new.html", form=form, technicians=technicians(),
+                               queue_url=url_for("main.queue"))
+    return render_workspace(panel="new", form=form, selected_id=None,
+                            **queue_context("active"))
 
 
 # --------------------------------------------------------------------------
@@ -182,9 +224,13 @@ def ticket_detail(ticket_id: int):
     notes = get_db().execute(
         "SELECT * FROM notes WHERE ticket_id = ? ORDER BY created_at, id", (ticket_id,)
     ).fetchall()
-    return render_template("ticket_detail.html", t=t, notes=notes, sla=sla_state(t),
-                           left=None if t["resolved_at"] else time_left(t),
-                           technicians=technicians())
+    detail = dict(t=t, notes=notes, sla=sla_state(t),
+                  left=None if t["resolved_at"] else time_left(t),
+                  technicians=technicians(), queue_url=url_for("main.queue"))
+    if fragment():
+        return render_template("_detail.html", **detail)
+    ctx = {**queue_context("active"), **detail, "selected_id": ticket_id}
+    return render_workspace(panel="detail", **ctx)
 
 
 @bp.route("/tickets/<int:ticket_id>/update", methods=["POST"])
@@ -206,7 +252,7 @@ def ticket_update(ticket_id: int):
 
     now = utcnow()
     changes, sets, params = [], [], []
-    redirect_to = redirect(url_for("main.ticket_detail", ticket_id=ticket_id))
+    redirect_to = redirect(url_for("main.ticket_detail", ticket_id=ticket_id, **frag_args()))
 
     if status in DONE_STATUSES and not (resolution or t["resolution"]):
         flash("Add a resolution summary before resolving or closing a ticket.", "error")
@@ -268,4 +314,4 @@ def note_add(ticket_id: int):
                          (to_text(utcnow()), ticket_id))
         get_db().commit()
         flash("Note added.", "ok")
-    return redirect(url_for("main.ticket_detail", ticket_id=ticket_id))
+    return redirect(url_for("main.ticket_detail", ticket_id=ticket_id, **frag_args()))

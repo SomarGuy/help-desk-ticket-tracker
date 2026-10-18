@@ -1,0 +1,24 @@
+<p class="count-line" id="count-line" role="status" aria-live="polite">
+  {{ tickets | length }} ticket{{ '' if tickets | length == 1 else 's' }}{% if past_due %}, <span class="sla-overdue">{{ past_due }} past due</span>{% endif %}
+</p>
+{% if tickets %}
+<ol class="queue">
+  {% for t in tickets %}
+  <li>
+    <a class="row-link" href="{{ url_for('main.ticket_detail', ticket_id=t.id) }}" {% if selected_id == t.id %}aria-current="true"{% endif %}>
+      <span class="dot st-{{ t.status | lower | replace(' ', '-') }}" aria-hidden="true"></span>
+      <span class="q-main">
+        <span class="q-title">{{ t.title }}</span>
+        <span class="q-meta"><span class="sr-only">Ticket </span>#{{ t.id }} <span class="sep" aria-hidden="true"></span>{{ t.requester }} <span class="sep" aria-hidden="true"></span>{{ t.category }} <span class="sep" aria-hidden="true"></span>{{ t.assignee or 'Unassigned' }} <span class="sep" aria-hidden="true"></span>{{ t.status }}</span>
+      </span>
+      <span class="q-pri pri-{{ t.priority | lower }}"><span class="sr-only">Priority </span>{{ t.priority }}</span>
+      <span class="q-due sla-{{ t.sla }}">
+        {% if t.sla == 'overdue' %}{{ t.left }}{% elif t.sla == 'ok' %}{{ t.left }}{% elif t.sla == 'met' %}Resolved {{ t.resolved_at | dt }}<small>on time</small>{% else %}Resolved {{ t.resolved_at | dt }}<small>SLA missed</small>{% endif %}
+      </span>
+    </a>
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="empty">No tickets match. <a href="{{ queue_url }}?status=">Show everything</a></p>
+{% endif %}

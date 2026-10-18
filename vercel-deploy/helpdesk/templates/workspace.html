@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{% if panel == 'detail' %}#{{ t.id }} {{ t.title }}{% elif panel == 'new' %}New ticket{% else %}Queue{% endif %}{% endblock %}
+{% block body %}
+<div class="workspace {{ 'has-panel' if panel }}" id="workspace">
+  <main id="main" class="queue-col">
+    <h1 class="sr-only">Ticket queue</h1>
+    {% if not panel %}{% include "_flashes.html" %}{% endif %}
+    <form class="search" method="get" action="{{ queue_url }}" role="search">
+      <label class="sr-only" for="q">Search tickets</label>
+      <input id="q" type="search" name="q" placeholder="Search tickets" value="{{ f.q }}" autocomplete="off">
+      <button type="submit" class="ghost">Search</button>
+      <details class="filters" {% if narrowed %}open{% endif %}>
+        <summary>Filters{% if narrowed %} <span class="count">{{ narrowed }}</span>{% endif %}</summary>
+        <div class="filter-grid">
+          <label>Status <select name="status">
+            <option value="">Any</option>
+            <option value="active" {{ 'selected' if f.status == 'active' }}>Not finished</option>
+            {% for s in STATUSES %}<option {{ 'selected' if f.status == s }}>{{ s }}</option>{% endfor %}</select></label>
+          <label>Category <select name="category"><option value="">Any</option>
+            {% for c in CATEGORIES %}<option {{ 'selected' if f.category == c }}>{{ c }}</option>{% endfor %}</select></label>
+          <label>Priority <select name="priority"><option value="">Any</option>
+            {% for p in PRIORITIES %}<option {{ 'selected' if f.priority == p }}>{{ p }}</option>{% endfor %}</select></label>
+          <label>Assignee <select name="assignee"><option value="">Anyone</option>
+            <option value="none" {{ 'selected' if f.assignee == 'none' }}>Unassigned</option>
+            {% for te in technicians %}<option value="{{ te.id }}" {{ 'selected' if f.assignee == te.id | string }}>{{ te.name }}</option>{% endfor %}</select></label>
+          <label class="chk"><input type="checkbox" name="overdue" value="1" {{ 'checked' if f.overdue }}> Overdue only</label>
+          <div class="filter-actions"><button type="submit">Apply</button> <a href="{{ queue_url }}?status=">Show everything</a> <a href="{{ url_for('main.queue') }}">Reset</a></div>
+        </div>
+      </details>
+    </form>
+    <div id="queue" data-queue-url="{{ queue_url }}">
+      {% include "_queue.html" %}
+    </div>
+  </main>
+  <aside id="panel" class="panel" aria-label="Ticket" {% if not panel %}hidden{% endif %}>
+    {% if panel == 'detail' %}{% include "_detail.html" %}{% elif panel == 'new' %}{% include "_new.html" %}{% endif %}
+  </aside>
+</div>
+{% endblock %}

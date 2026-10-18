@@ -17,7 +17,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     )
     if test_config:
         app.config.update(test_config)
-    os.makedirs(app.instance_path, exist_ok=True)
+    os.makedirs(os.path.dirname(app.config["DATABASE"]), exist_ok=True)
 
     app.teardown_appcontext(db.close_db)
 
@@ -42,6 +42,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     @app.context_processor
     def inject_constants():
         return dict(CATEGORIES=CATEGORIES, PRIORITIES=PRIORITIES, STATUSES=STATUSES,
-                    DONE_STATUSES=DONE_STATUSES, now_text=db.to_text(db.utcnow()))
+                    DONE_STATUSES=DONE_STATUSES, now_text=db.to_text(db.utcnow()),
+                    hosted=bool(app.config.get("HOSTED_DEMO")))
 
     return app

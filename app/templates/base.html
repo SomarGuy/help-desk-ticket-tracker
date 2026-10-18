@@ -3,26 +3,50 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Help Desk{% endblock %} - Ticket Tracker</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f4e8c'/%3E%3Cpath d='M9 9h14v3H9zm0 6h14v3H9zm0 6h9v3H9z' fill='%23fff'/%3E%3C/svg%3E">
+  <title>{% block title %}Queue{% endblock %} | Help desk</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2318202b'/%3E%3Cpath d='M9 11h14M9 16h14M9 21h8' stroke='%23fff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="top">
-  <a class="brand" href="{{ url_for('main.dashboard') }}">Help Desk Ticket Tracker</a>
+  <a class="brand" href="{{ url_for('main.queue') }}">Help desk</a>
   <nav aria-label="Main">
-    <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
-    <a href="{{ url_for('main.ticket_list', status='active') }}">Open tickets</a>
-    <a href="{{ url_for('main.ticket_list') }}">All tickets</a>
-    <a class="btn" href="{{ url_for('main.ticket_new') }}">+ New ticket</a>
+    <a href="{{ url_for('main.queue') }}" {% if request.endpoint in ('main.queue', 'main.ticket_list', 'main.ticket_detail', 'main.ticket_new') %}aria-current="page"{% endif %}>Queue</a>
+    <a href="{{ url_for('main.dashboard') }}" {% if request.endpoint == 'main.dashboard' %}aria-current="page"{% endif %}>Overview</a>
   </nav>
+  <div class="top-right">
+    <button type="button" class="help-link" data-open-help hidden>How to use this</button>
+    <a class="btn" href="{{ url_for('main.ticket_new') }}" data-new>New ticket</a>
+  </div>
 </header>
-<main>
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in messages %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
-  {% endwith %}
-  {% block content %}{% endblock %}
-</main>
-<footer>Portfolio demo app. Ticket data is <strong>synthetic sample data</strong> created by seed.py. All times are UTC. No login: do not expose to a public network.</footer>
+{% block body %}{% endblock %}
+<footer>
+  <p>A portfolio demo. Every ticket is <strong>synthetic sample data</strong> made by <code>seed.py</code>. Times are UTC.{% if hosted %} This hosted copy has no login and its data resets when the server restarts, so tickets you create will disappear.{% else %} There is no login: keep it off a public network.{% endif %}</p>
+  <p><button type="button" class="linklike" data-open-help="why" hidden>Why I built this</button><span class="sep" aria-hidden="true"></span><a href="https://github.com/SomarGuy/help-desk-ticket-tracker">Source on GitHub</a></p>
+</footer>
+<dialog id="help" class="help" aria-labelledby="help-title">
+  <div class="help-inner">
+    <div class="help-bar"><h2 id="help-title">How to use this</h2><button type="button" class="help-close" data-close-help>Close</button></div>
+    <ol class="help-steps">
+      <li><strong>Start with the queue.</strong> Tickets that are not finished are listed first, with the one closest to its due time (or most overdue) at the top.</li>
+      <li><strong>Click a ticket</strong> to open it on the right. Press Esc or choose Close to go back to the list.</li>
+      <li><strong>Change what has changed.</strong> Set the status, priority or assignee, then Save. To resolve or close a ticket, write a short resolution first. The box appears when you pick Resolved or Closed.</li>
+      <li><strong>Write notes as you work.</strong> Everything you change is also added to the ticket's log automatically.</li>
+      <li><strong>Narrow the list</strong> with the search box, or open Filters for category, priority, assignee and overdue. Overview has the numbers.</li>
+    </ol>
+    <details class="gloss"><summary>Words you will see</summary><dl>
+      <dt>SLA</dt><dd>The time a ticket is allowed to stay unresolved. Here: Critical 4 hours, High 8, Medium 24, Low 72. This is a sample policy I chose, not a real company's.</dd>
+      <dt>Due</dt><dd>When the SLA runs out. Past that, the ticket is overdue.</dd>
+      <dt>Status</dt><dd>Open, In Progress, Waiting on User, Resolved or Closed.</dd>
+      <dt>Assignee</dt><dd>The technician who owns the ticket.</dd>
+      <dt>Log</dt><dd>The history of notes and changes on a ticket.</dd>
+    </dl></details>
+    <h2 id="why" class="why-title">Why I built this</h2>
+    <p>I wanted to understand what a help desk does with a request from the moment it arrives to the moment it is closed, not only use a ticketing system. So I built a small one: create a ticket, give it an owner and a due time, write down what you tried, and record what fixed it.</p>
+    <p>All the tickets and names are made up by a script, and the due times follow a sample policy I picked. It is a demo, so the hosted copy forgets everything when it restarts.</p>
+  </div>
+</dialog>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

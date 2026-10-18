@@ -6,7 +6,7 @@ It seeds a throw-away database, starts the Flask app on a spare port, and uses
 headless Chromium (Playwright) to capture pages into ./screenshots.
 
 Setup (once):  pip install playwright && playwright install chromium
-Run:           python scripts/take_screenshots.py
+Run:           python scripts/take_screenshots.py     (set CHROME_PATH to use an installed Chrome)
 """
 import os
 import sys
@@ -40,30 +40,47 @@ def main() -> None:
     base = f"http://127.0.0.1:{PORT}"
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(executable_path=os.environ.get("CHROME_PATH") or None)
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        browser = p.chromium.launch(executable_path=os.environ.get("CHROME_PATH") or None,
+                                    args=["--no-sandbox"])
 
-        page.goto(base + "/")
-        page.screenshot(path=OUT / "01-dashboard.png", full_page=True)
+        def shot(page, name, full=False):
+            page.wait_for_timeout(400)               # let the slide-over settle
+            page.screenshot(path=OUT / name, full_page=full)
 
-        page.goto(base + "/tickets?status=active")
-        page.screenshot(path=OUT / "02-open-tickets.png", full_page=True)
+        desk = browser.new_page(viewport={"width": 1440, "height": 900})
+        desk.goto(base + "/")
+        shot(desk, "01-queue-desktop.png")
 
-        page.goto(base + "/tickets?q=wi-fi&category=Network")
-        page.screenshot(path=OUT / "03-search-filter.png", full_page=True)
+        desk.locator(".row-link").nth(1).click()               # open a ticket beside the list
+        desk.wait_for_selector("#panel:not([hidden]) form.update")
+        shot(desk, "02-ticket-open-desktop.png")
 
-        # Ticket detail of a finished ticket (has a resolution log)
-        page.goto(base + "/tickets?status=Resolved")
-        page.locator("table.tickets tbody tr a").first.click()
-        page.screenshot(path=OUT / "04-ticket-detail.png", full_page=True)
+        # a finished ticket, with its resolution and log
+        desk.goto(base + "/tickets?status=Resolved")
+        desk.locator(".row-link").first.click()
+        desk.wait_for_selector("#panel:not([hidden]) .res-box")
+        shot(desk, "03-resolved-ticket-detail.png")
 
-        page.goto(base + "/tickets/new")
-        page.fill("input[name=title]", "Laptop will not connect to office Wi-Fi")
-        page.fill("input[name=requester]", "Sample User")
-        page.select_option("select[name=category]", "Network")
-        page.select_option("select[name=priority]", "High")
-        page.fill("textarea[name=description]", "Sample ticket created while taking screenshots.")
-        page.screenshot(path=OUT / "05-new-ticket-form.png", full_page=True)
+        desk.goto(base + "/")
+        desk.click("summary:has-text('Filters')")
+        desk.check("input[name=overdue]")
+        desk.click(".filter-grid button[type=submit]")
+        desk.wait_for_function("document.querySelector('#count-line').textContent.includes('past due')")
+        shot(desk, "04-filtered-overdue-desktop.png")
+
+        desk.goto(base + "/overview")
+        shot(desk, "05-overview-desktop.png", full=True)
+
+        desk.goto(base + "/")
+        desk.click("button.help-link")
+        shot(desk, "06-help-panel-desktop.png")
+
+        mob = browser.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2)
+        mob.goto(base + "/")
+        shot(mob, "07-queue-mobile.png")
+        mob.locator(".row-link").nth(1).click()
+        mob.wait_for_selector("#panel:not([hidden]) form.update")
+        shot(mob, "08-ticket-mobile.png")
         browser.close()
     server.shutdown()
     print("Screenshots written to", OUT)

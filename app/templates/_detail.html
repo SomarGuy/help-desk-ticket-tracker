@@ -1,0 +1,58 @@
+<div class="p-inner" data-ticket="{{ t.id }}">
+  <div class="p-top">
+    <span class="p-id">Ticket #{{ t.id }}</span>
+    <a class="p-close" href="{{ queue_url }}" data-close>Close</a>
+  </div>
+  {% include "_flashes.html" %}
+  <h2 id="p-title" tabindex="-1">{{ t.title }}</h2>
+  <p class="p-tags">
+    <a class="tag st-{{ t.status | lower | replace(' ', '-') }}" href="{{ url_for('main.ticket_list', status=t.status) }}" title="All {{ t.status }} tickets">{{ t.status }}</a>
+    <a class="tag pri-{{ t.priority | lower }}" href="{{ url_for('main.ticket_list', priority=t.priority) }}" title="All {{ t.priority }} priority tickets">{{ t.priority }}</a>
+    <a class="tag cat" href="{{ url_for('main.ticket_list', category=t.category) }}" title="All {{ t.category }} tickets">{{ t.category }}</a>
+  </p>
+  <dl class="facts">
+    <div><dt>Requester</dt><dd>{{ t.requester }}</dd></div>
+    <div><dt>Assignee</dt><dd>{{ t.assignee or 'Unassigned' }}</dd></div>
+    <div><dt>Created</dt><dd>{{ t.created_at | dt }}</dd></div>
+    <div class="sla-{{ sla }}"><dt>{{ 'Due' if not t.resolved_at else 'Resolved' }}</dt>
+      <dd>{% if t.resolved_at %}{{ t.resolved_at | dt }} <small>{{ 'within SLA' if sla == 'met' else 'SLA missed' }}</small>{% else %}{{ t.due_at | dt }} <small>{{ left }}</small>{% endif %}</dd></div>
+  </dl>
+
+  <section>
+    <h3>Description</h3>
+    <p class="pre">{{ t.description or 'No description.' }}</p>
+    {% if t.resolution %}<h3>Resolution</h3><p class="pre res-box">{{ t.resolution }}</p>{% endif %}
+  </section>
+
+  <section>
+    <h3>Update</h3>
+    <form class="stack update" method="post" action="{{ url_for('main.ticket_update', ticket_id=t.id) }}" data-ajax>
+      <div class="row3">
+        <label>Status <select name="status">{% for s in STATUSES %}<option {{ 'selected' if t.status == s }}>{{ s }}</option>{% endfor %}</select></label>
+        <label>Priority <select name="priority">{% for p in PRIORITIES %}<option {{ 'selected' if t.priority == p }}>{{ p }}</option>{% endfor %}</select></label>
+        <label>Assignee <select name="assignee_id"><option value="">Unassigned</option>
+          {% for te in technicians %}<option value="{{ te.id }}" {{ 'selected' if t.assignee_id == te.id }}>{{ te.name }}</option>{% endfor %}</select></label>
+      </div>
+      <label class="res-field" data-done="{{ DONE_STATUSES | join(',') }}">Resolution summary <small>(needed to resolve or close)</small>
+        <textarea name="resolution" rows="3" placeholder="What fixed it?">{{ t.resolution or '' }}</textarea></label>
+      <div class="actions"><label class="who">Your name <input name="author" value="Technician" maxlength="60"></label><button type="submit">Save changes</button></div>
+    </form>
+  </section>
+
+  <section>
+    <h3>Log <span class="muted">({{ notes | length }})</span></h3>
+    <ol class="log">
+      {% for n in notes %}
+      <li class="{{ n.kind }}">
+        <div class="when">{{ n.created_at | dt }} <span class="sep" aria-hidden="true"></span>{{ n.author }}{% if n.kind != 'note' %} <span class="sep" aria-hidden="true"></span>{{ n.kind }}{% endif %}</div>
+        <div class="pre">{{ n.body }}</div>
+      </li>
+      {% endfor %}
+    </ol>
+    <form class="stack note-form" method="post" action="{{ url_for('main.note_add', ticket_id=t.id) }}" data-ajax>
+      <label class="sr-only" for="note-body">Add a note</label>
+      <textarea id="note-body" name="body" rows="2" required placeholder="Add a note: what did you check or do?"></textarea>
+      <div class="actions"><label class="who">Your name <input name="author" value="Technician" maxlength="60"></label><button type="submit" class="ghost">Add note</button></div>
+    </form>
+  </section>
+</div>

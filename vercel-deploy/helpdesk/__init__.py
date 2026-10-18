@@ -42,6 +42,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     @app.context_processor
     def inject_constants():
         return dict(CATEGORIES=CATEGORIES, PRIORITIES=PRIORITIES, STATUSES=STATUSES,
-                    DONE_STATUSES=DONE_STATUSES, now_text=db.to_text(db.utcnow()))
+                    DONE_STATUSES=DONE_STATUSES, now_text=db.to_text(db.utcnow()),
+                    hosted=bool(app.config.get("HOSTED_DEMO")))
 
     return app
